@@ -1,86 +1,269 @@
-# LVGL ported to VIEWE 1.5" Touch Knob
+# Touch-Knob Hardware Map (ESP32-S3R8 + SH8601 + CST820)
 
-## Overview
+Этот README полностью описывает текущие пины, интерфейсы и обмен с экраном согласно исходникам проекта.
 
-The Viewe Touch Knob Display, designed and developed by Viewe Display, features a high-resolution 466x466 AMOLED panel with 1000 cd/m² brightness, a rotary knob with an integrated push button, and capacitive touch input. Powered by an ESP32-S3 (240 MHz) with 8 MB RAM and 16 MB Flash, it supports Wi-Fi, BLE 5, and BLE Mesh. Compatible with Arduino, ESP-IDF, and LVGL, it offers UART and USB interfaces. Ideal for IoT and AIoT projects, the touch-enabled knob display is perfect for creating intuitive control panels, smart home hubs, industrial interfaces, and embedded dashboards.
+## 1. Экран и тач: что за чипы
 
-## Buy
+- **MCU:** ESP32-S3R8 (встроенная PSRAM 8MB) + внешний EEPROM/Flash 16MB.
+- **LCD контроллер:** SH8601 (AMOLED панель 1.5").
+- **Touch контроллер:** CST820 (capacitive touch).
 
-You can purchase Viewe Touch Knob Display from https://viewedisplay.com/product/esp32-1-5-inch-466x466-round-amoled-knob-display-touch-screen-arduino-lvgl/
+## 2. Как идет обмен с экраном (LCD)
 
-## Benchmark
+Экран подключен по **QSPI (quad mode) поверх SPI2**:
 
-The display is driven using QSPI interface. Two display LVGL draw buffers are used (472x60x2) with `LV_DISPLAY_RENDER_MODE_PARTIAL` mode.
+1. **SPI/QSPI шина** инициализируется через `spi_bus_initialize()`.
+2. Создается **SPI IO хэндл** `esp_lcd_new_panel_io_spi(...)`.
+3. Подключается драйвер SH8601: `esp_lcd_new_panel_sh8601(...)`.
+4. Выполняется reset/init и включение дисплея.
 
-Check out Viewe Touch Knob Display in action, running LVGL's benchmark demo:
-<a href="https://www.youtube.com/watch?v=uHdSQY_k2Mg"> <img src="assets/preview.png"  width="70%"/> </a>
+В конфиге используется:
+- `quad_mode = true`
+- `use_qspi_interface = 1`
+- команды инициализации из массива `lcd_init_cmds[]`.
 
-### Benchmark Summary (9.3.0 )
+## 3. Как идет обмен с тачем
 
-| Name                      | Avg. CPU  | Avg. FPS  | Avg. time | render time   | flush time    |
-| ------------------------- | --------- | --------- | --------- | ------------- | ------------- |
-| Empty screen              | 69%       | 27        | 22        | 7             | 15            |
-| Moving wallpaper          | 70%       | 28        | 23        | 13            | 10            |
-| Single rectangle          | 8%        | 28        | 0         | 0             | 0             |
-| Multiple rectangles       | 37%       | 28        | 12        | 8             | 4             |
-| Multiple RGB images       | 24%       | 28        | 6         | 5             | 1             |
-| Multiple ARGB images      | 45%       | 28        | 14        | 13            | 1             |
-| Rotated ARGB images       | 44%       | 28        | 14        | 14            | 0             |
-| Multiple labels           | 55%       | 28        | 18        | 15            | 3             |
-| Screen sized text         | 96%       | 12        | 79        | 72            | 7             |
-| Multiple arcs             | 22%       | 28        | 4         | 4             | 0             |
-| Containers                | 22%       | 28        | 8         | 7             | 1             |
-| Containers with overlay   | 94%       | 25        | 35        | 29            | 6             |
-| Containers with opa       | 29%       | 28        | 12        | 11            | 1             |
-| Containers with opa_layer | 42%       | 28        | 17        | 17            | 0             |
-| Containers with scrolling | 95%       | 23        | 39        | 33            | 6             |
-| Widgets demo              | 99%       | 14        | 54        | 49            | 5             |
-| All scenes avg.           | 53%       | 25        | 21        | 18            | 3             |
+Touch подключен по **I2C (I2C_NUM_0)**:
 
-## Specification
+1. Настраивается I2C (`i2c_param_config`, `i2c_driver_install`).
+2. Создается I2C IO для touch: `esp_lcd_new_panel_io_i2c(...)`.
+3. Инициализируется драйвер CST820: `esp_lcd_touch_new_i2c_cst820(...)`.
 
-### CPU and Memory
-- **MCU:** ESP32-S3 240Mhz
-- **RAM:** 512 KB internal, 8MB external PSRAM
-- **Flash:** 16MB External Flash
-- **GPU:** None
+## 4. Как это связано с LVGL
 
-### Display and Touch
-- **Resolution:** 466x466
-- **Display Size:** 1.5"
-- **Interface:** QSPI (CO5300AF-42)
-- **Color Depth:** 16-bit
-- **Technology:** AMOLED
-- **DPI:** 439px/inch
-- **Touch Pad:** Capacitive (CST816S)
+- LVGL дисплей получает `lcd_io` и `lcd_panel` через `lvgl_port_add_disp(...)`.
+- Touch input передается в LVGL через `lvgl_port_add_touch(...)`.
 
-### Connectivity
-- Integrated Rotary Knob
-- Integrated Push Button
+## 5. Полная карта пинов (актуально по `main/main.c`)
 
-## Getting started
+### LCD (SH8601, QSPI/SPI2)
 
-### Hardware setup
-- First connect the FPC from the display to the extension board then connect a Micro USB cable to the extension board.
+| Назначение | GPIO |
+|-----------|------|
+| LCD_CS | GPIO12 |
+| LCD_PCLK (SCLK) | GPIO10 |
+| LCD_DATA0 | GPIO13 |
+| LCD_DATA1 | GPIO11 |
+| LCD_DATA2 | GPIO14 |
+| LCD_DATA3 | GPIO9 |
+| LCD_RST | GPIO8 |
+| Backlight | GPIO17 |
 
-### Software setup
-- Install CH340G drivers for UART chip
-- Install the VS Code IDE & PlatformIO extension
+### Touch (CST820, I2C)
 
-### Run the project
-- Clone this repository: 
-- Open the code folder using VS Code. PlatformIO needs to be installed. ESP-IDF will automatically be installed if not present
-- Configure the project. Click on the gear icon (SDK Configuration editor)
-- Build the project. Click on the wrench icon (Build Project)
-- Run or Debug. Alternatively click on the fire icon (ESP-IDF: Build, Flash & Monitor) to run flash and debug the code
+| Назначение | GPIO |
+|-----------|------|
+| I2C_SCL | GPIO3 |
+| I2C_SDA | GPIO1 |
+| TOUCH_RST | GPIO2 |
+| TOUCH_INT | GPIO4 |
 
-### Debugging
-- Debug using ESP Logging Library `ESP_LOGE, ESP_LOGI ...`
-- After flashing (ESP-IDF: Build, Flash & Monitor), a terminal will appear showing the logs
+### Энкодер
 
+| Назначение | GPIO |
+|-----------|------|
+| ENCODER_A | GPIO6 |
+| ENCODER_B | GPIO5 |
 
-## Contribution and Support
+### Кнопка
 
-If you find any issues with the development board feel free to open an Issue in this repository. For LVGL related issues (features, bugs, etc) please use the main [lvgl repository](https://github.com/lvgl/lvgl).
+| Назначение | GPIO |
+|-----------|------|
+| BUTTON | GPIO0 |
 
-If you found a bug and found a solution too please send a Pull request. If you are new to Pull requests refer to [Our Guide](https://docs.lvgl.io/master/CONTRIBUTING.html#pull-request) to learn the basics.
+### PWM вентилятор (будет использоваться)
+
+| Назначение | GPIO |
+|-----------|------|
+| FAN_PWM | GPIO45 |
+
+## 6. Параметры экрана (из кода)
+
+- **Разрешение:** 472 × 466 (в коде H_RES=472, V_RES=466).
+- **Цвет:** RGB565 (16-bit, зависит от `CONFIG_LV_COLOR_DEPTH`).
+- **Буферы LVGL:** двойной буфер, высота 60 строк.
+
+## 7. Что сейчас выводит LVGL
+
+По умолчанию запускается демо **`lv_demo_widgets()`**.
+
+## 8. Полная карта файлов (кратко)
+
+| Путь | Назначение |
+|------|------------|
+| `CMakeLists.txt` | Главный CMake проекта ESP-IDF, подключает `components` и задает проект. |
+| `README.md` | Документация проекта (пины, экран, обмен, структура). |
+| `manifest.json` | Манифест/метаданные проекта. |
+| `partitions.csv` | Таблица разделов флеша (partition table). |
+| `sdkconfig` | Текущий конфиг ESP-IDF. |
+| `sdkconfig.defaults` | Базовые значения конфигурации. |
+| `sdkconfig.defaults.esp32s3` | Значения по умолчанию для ESP32-S3. |
+| `sdkconfig.ci.defaults` | Конфиг по умолчанию для CI. |
+| `sdkconfig.ci.sh8601` | Конфиг CI под SH8601. |
+| `board_images/` | Изображения/материалы по плате. |
+| `components/viewe__esp_lcd_touch_cst820/` | Компонент драйвера CST820 (I2C touch). |
+| `components/viewe__esp_lcd_touch_cst820/esp_lcd_touch_cst820.c` | Реализация драйвера CST820. |
+| `components/viewe__esp_lcd_touch_cst820/include/` | Заголовки драйвера CST820. |
+| `components/viewe__esp_lcd_touch_cst820/README.md` | Документация компонента CST820. |
+| `main/` | Основной компонент приложения. |
+| `main/main.c` | Инициализация LCD/Touch/LVGL/кнопки/энкодера, запуск demo. |
+| `main/Kconfig.projbuild` | Kconfig: выбор контроллера LCD/Touch и настройка опций. |
+| `main/idf_component.yml` | Зависимости компонента (LVGL, SH8601, button, knob). |
+| `main/CMakeLists.txt` | Регистрация исходников компонента `main`. |
+
+---
+
+Если нужно расширить README (схема, pinout image, wiring и т.п.) — скажи.
+
+## 9. Концепция интерфейса (UI/UX)
+
+Интерфейс минималистичный, читаемый с расстояния, ориентирован на работу «вслепую» руками мастера.
+
+Ключевые принципы:
+- **1 основное действие → 1 экран**
+- **Минимум текста, максимум визуальной обратной связи**
+- **Все критичные состояния видны с первого взгляда**
+
+### 9.1 Экран включения (Boot / Power On)
+
+**Назначение:** показать, что устройство живо, загружается и принадлежит конкретному владельцу.
+
+**Поведение:**
+1. Подача питания
+2. Загрузка MCU, PWM, GPIO, NVS, дисплея
+3. Переход к рабочему экрану
+
+**Визуал:**
+- Центр: логотип Belom
+- Лёгкая анимация: fade‑in или короткий scale/line‑draw
+- Внизу (опционально): `Owner: Mark` (если имя задано; если нет — строка не показывается)
+
+**⏱ Время:** 1.5–2.5 сек, не дольше
+
+### 9.2 Основной экран — скорость вентилятора
+
+Это главный экран, 90% времени пользователь видит именно его.
+
+**Логика скорости:**
+- Управление: поворот энкодера
+- Диапазон (рабочий): **40% – 80%**
+- Вольты:
+  - 0–10 V = 100%
+  - 40% = 4.0 V
+  - 80% = 8.0 V
+- ESP32 выдаёт 0–3.3 V, далее умножитель:
+  - 40% → 1.32 V
+  - 80% → 2.64 V
+- Ниже 40% и выше 80% — либо ограничено, либо отдельный сервисный режим (не сейчас).
+
+**Визуальный дизайн:**
+- Центр: крупное число (например `65%`)
+- Вокруг: кольцевая анимация (arc / progress ring), заполняется по мере увеличения скорости
+- Мелкая подпись: `Fan speed`
+
+**Анимация:**
+- Плавное движение дуги
+- Лёгкий «инерционный» эффект при вращении
+- Обновление ~30 FPS (визуально плавно, но не жирно)
+
+### 9.3 Блокировка управления (Lock)
+
+**Назначение:** исключить случайные изменения скорости.
+
+**Вход в блокировку:** один клик по кнопке (GPIO0).
+
+**Поведение:**
+- Энкодер не изменяет PWM
+- Скорость фиксирована
+- Экран остаётся активным
+
+**Визуал:**
+- Поверх основного экрана: иконка 🔒 (замок)
+- Полупрозрачная, пульсирующая или с мягким «дыханием»
+- Цвет: белый/серый (не тревожный)
+
+**Выход из блокировки:** один клик по кнопке, замок исчезает (анимация unlock).
+
+### 9.4 Вход в настройки
+
+**Жест:** три быстрых нажатия кнопки (triple‑click).
+
+**Тайминг:** окно ~600–800 мс между кликами.
+
+**Поведение:**
+- Переход с основного экрана в меню
+- PWM не меняется, вентилятор продолжает работать
+
+### 9.5 Экран настроек (Settings)
+
+**Общая логика:**
+- Навигация: поворот энкодера
+- Подтверждение: один клик
+- Назад: долгий клик (1.5–2 сек)
+
+#### 9.5.1 Выбор языка
+
+**Пункт меню:** `Language`
+
+**Список языков:**
+- English (default)
+- Русский
+- Eesti
+- Deutsch
+- Suomi
+- Latviešu
+- Lietuvių
+- Español
+
+**Поведение:**
+- Список прокручивается
+- Активный язык подсвечен
+- При выборе язык применяется сразу, перерисовка UI без перезагрузки
+
+**Пример переводов:**
+- Locked / Unlocked
+- Settings
+- Language
+- Owner name
+
+#### 9.5.2 Имя владельца (Owner Name)
+
+**Назначение:** персонализация устройства.
+
+**Экран:**
+- Заголовок: `Owner name`
+- Текущее имя (если есть)
+- Ввод:
+  - энкодер → выбор символа
+  - кнопка → подтвердить символ
+
+**Символы:**
+- A–Z
+- a–z
+- 0–9
+- space
+- ← (backspace)
+- ✓ (save)
+
+**Поведение:**
+- Имя сохраняется в NVS
+- Отображается при включении (boot screen), только если задано
+
+### 9.6 Состояния и приоритеты
+
+| Состояние | Приоритет |
+|-----------|-----------|
+| Lock | Высокий |
+| Speed control | Основной |
+| Settings | Временный |
+| Boot | Только при старте |
+
+### 9.7 Резюме логики управления
+
+| Действие | Результат |
+|----------|-----------|
+| Вращение энкодера | Изменение скорости |
+| 1 клик | Lock / Unlock |
+| 3 клика | Settings |
+| Долгий клик | Назад |

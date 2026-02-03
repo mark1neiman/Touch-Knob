@@ -1,12 +1,12 @@
-# Touch-Knob Hardware Map (ESP32-S3 + SH8601 + CST820)
+# Touch-Knob Hardware Map (ESP32-S3R8 + SH8601 + CST820)
 
 Этот README полностью описывает текущие пины, интерфейсы и обмен с экраном согласно исходникам проекта.
 
 ## 1. Экран и тач: что за чипы
 
+- **MCU:** ESP32-S3R8 (встроенная PSRAM 8MB) + внешний EEPROM/Flash 16MB.
 - **LCD контроллер:** SH8601 (AMOLED панель 1.5").
 - **Touch контроллер:** CST820 (capacitive touch).
-- **MCU:** ESP32-S3.
 
 ## 2. Как идет обмен с экраном (LCD)
 
@@ -81,6 +81,30 @@ Touch подключен по **I2C (I2C_NUM_0)**:
 ## 7. Что сейчас выводит LVGL
 
 По умолчанию запускается демо **`lv_demo_widgets()`**.
+
+## 8. Полная карта файлов (кратко)
+
+| Путь | Назначение |
+|------|------------|
+| `CMakeLists.txt` | Главный CMake проекта ESP-IDF, подключает `components` и задает проект. |
+| `README.md` | Документация проекта (пины, экран, обмен, структура). |
+| `manifest.json` | Манифест/метаданные проекта. |
+| `partitions.csv` | Таблица разделов флеша (partition table). |
+| `sdkconfig` | Текущий конфиг ESP-IDF. |
+| `sdkconfig.defaults` | Базовые значения конфигурации. |
+| `sdkconfig.defaults.esp32s3` | Значения по умолчанию для ESP32-S3. |
+| `sdkconfig.ci.defaults` | Конфиг по умолчанию для CI. |
+| `sdkconfig.ci.sh8601` | Конфиг CI под SH8601. |
+| `board_images/` | Изображения/материалы по плате. |
+| `components/viewe__esp_lcd_touch_cst820/` | Компонент драйвера CST820 (I2C touch). |
+| `components/viewe__esp_lcd_touch_cst820/esp_lcd_touch_cst820.c` | Реализация драйвера CST820. |
+| `components/viewe__esp_lcd_touch_cst820/include/` | Заголовки драйвера CST820. |
+| `components/viewe__esp_lcd_touch_cst820/README.md` | Документация компонента CST820. |
+| `main/` | Основной компонент приложения. |
+| `main/main.c` | Инициализация LCD/Touch/LVGL/кнопки/энкодера, запуск demo. |
+| `main/Kconfig.projbuild` | Kconfig: выбор контроллера LCD/Touch и настройка опций. |
+| `main/idf_component.yml` | Зависимости компонента (LVGL, SH8601, button, knob). |
+| `main/CMakeLists.txt` | Регистрация исходников компонента `main`. |
 
 ---
 
